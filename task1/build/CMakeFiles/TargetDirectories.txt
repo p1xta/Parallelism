@@ -1,0 +1,3 @@
+/home/p1xta/Parallelism/task1/build/CMakeFiles/task1.dir
+/home/p1xta/Parallelism/task1/build/CMakeFiles/edit_cache.dir
+/home/p1xta/Parallelism/task1/build/CMakeFiles/rebuild_cache.dir

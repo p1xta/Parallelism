@@ -23,8 +23,8 @@ int main() {
         #endif
         sum += sin[i];
     }
-    std::cout << std::setprecision(9);
-    std::cout << sum << std::endl;
+    std::cout << std::setprecision(15);
+    std::cout << std::fixed << sum << std::endl;
     
     delete[] sin;
     return 0;

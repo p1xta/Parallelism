@@ -5,21 +5,21 @@
 #define size 10000000
 
 #ifdef DOUBLE
-        using ArrayType = double;
+        using Type = double;
 #else
-        using ArrayType = float;
+        using Type = float;
 #endif
 
 
 int main() {
-    ArrayType* sin = new ArrayType[size];
-    ArrayType sum = 0;
+    Type* sin = new Type[size];
+    Type sum = 0;
 
     for (int i = 0; i < size; i++) {
         #ifdef DOUBLE
-            sin[i] = std::sin((ArrayType)i * 2.0 * M_PI / size);
+            sin[i] = std::sin((Type)i * 2.0 * M_PI / size);
         #else 
-            sin[i] = sinf((ArrayType)i * 2.0 * M_PI / size);
+            sin[i] = sinf((Type)i * 2.0 * M_PI / size);
         #endif
         sum += sin[i];
     }

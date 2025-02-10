@@ -4,7 +4,7 @@
 
 #define size 10000000
 
-#ifdef USE_DOUBLE
+#ifdef DOUBLE
         using ArrayType = double;
 #else
         using ArrayType = float;
@@ -16,7 +16,7 @@ int main() {
     ArrayType sum = 0;
 
     for (int i = 0; i < size; i++) {
-        #ifdef USE_DOUBLE
+        #ifdef DOUBLE
             sin[i] = std::sin((ArrayType)i * 2.0 * M_PI / size);
         #else 
             sin[i] = sinf((ArrayType)i * 2.0 * M_PI / size);

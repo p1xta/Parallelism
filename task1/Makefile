@@ -2,7 +2,7 @@ TYPE = float
 CXXFLAGS = -Wall
 
 ifeq ($(TYPE), double)
-    CXXFLAGS += -DUSE_DOUBLE
+    CXXFLAGS += -DDOUBLE
 endif
 
 all: task1

@@ -4,7 +4,7 @@
 
 #define size 10000000
 
-#ifdef USE_DOUBLE
+#ifdef DOUBLE
         using Type = double;
 #else
         using Type = float;
@@ -15,7 +15,7 @@ int main() {
     Type sum = 0;
 
     for (int i = 0; i < size; i++) {
-        #ifdef USE_DOUBLE
+        #ifdef DOUBLE
             sin[i] = std::sin((Type)i * 2.0 * M_PI / size);
         #else 
             sin[i] = sinf((Type)i * 2.0f * M_PI / size);

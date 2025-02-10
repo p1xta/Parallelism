@@ -7,8 +7,8 @@ endif
 
 all: task1
 
-main: task1.cpp
-	$(CXXFLAGS) -o $@ $<
+task1: task1.cpp
+	g++ $(CXXFLAGS) -o $@ $<
 
 clean:
 	rm -f task1

@@ -28,13 +28,11 @@ void matrix_mult_parallel(double* matrix, double* vector, double* res, int N, in
 
 double run_parallel(int N, int num_threads) {
     double *a, *b, *c;
-    // std::vector<double> a, b, c;
+
     a = (double*)malloc(sizeof(*a) * N * N);
     b = (double*)malloc(sizeof(*b) * N);
     c = (double*)malloc(sizeof(*c) * N);
-    // a = std::vector<double>(N*N);
-    // b = std::vector<double>(N);
-    // c = std::vector<double>(N);
+
     #pragma omp parallel num_threads(40)
     {   
         for (int i = 0; i < N; i++) {

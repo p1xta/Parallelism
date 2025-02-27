@@ -97,7 +97,7 @@ int main() {
         double parallel_time = run_parallel(size, n_threads);
         std::cout << "On " << n_threads << " threads:\n";
         std::cout << "Time: " << parallel_time << "s\n";
-        std::cout << "Boost: " << serial_time / parallel_time << "times\n\n";
+        std::cout << "Boost: " << serial_time / parallel_time << " times\n\n";
     }
     
     size = 40000;
@@ -112,7 +112,7 @@ int main() {
         double parallel_time = run_parallel(size, n_threads);
         std::cout << "On " << n_threads << " threads:\n";
         std::cout << "Time: " << parallel_time << "s\n";
-        std::cout << "Boost: " << serial_time / parallel_time << "times\n\n";
+        std::cout << "Boost: " << serial_time / parallel_time << " times\n\n";
     }
 
 

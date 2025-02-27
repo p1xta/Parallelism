@@ -26,7 +26,6 @@ void matrix_mult_parallel(double* matrix, double* vector, double* res, int N, in
             }
         }
     }
-    
 }
 
 double vector_magnitude(double* vector, int len) {
@@ -36,6 +35,7 @@ double vector_magnitude(double* vector, int len) {
     }
     return sqrt(magnitude);
 }
+
 
 double iteration_method_serial(double* A, double* b, double* x, int N) {
     double* Ax = (double*)malloc(sizeof(double) * N);
@@ -59,14 +59,14 @@ double iteration_method_serial(double* A, double* b, double* x, int N) {
     return elapsed_seconds.count();
 }
 
-double iteration_method_parallel_1_var(double* A, double* b, double* x, int N) {
+double iteration_method_parallel_1_var(double* A, double* b, double* x, int N, int n_threads) {
     double* Ax = (double*)malloc(sizeof(double) * N);
     double* x_new = (double*)malloc(sizeof(double) * N);
     double criterion = 1;
 
     const auto start{std::chrono::steady_clock::now()};
     while (criterion >= epsilon) {
-        matrix_mult_parallel(A, x, Ax, N, 40);
+        matrix_mult_parallel(A, x, Ax, N, n_threads);
         double x_new_magnitude = 0.0;
         #pragma omp for
         for (int i = 0; i < N; ++i) {
@@ -82,27 +82,40 @@ double iteration_method_parallel_1_var(double* A, double* b, double* x, int N) {
     return elapsed_seconds.count();
 }
 
-double iteration_method_parallel_2_var(double* A, double* b, double* x, int N) {
+double iteration_method_parallel_2_var(double* A, double* b, double* x, int N, int n_threads) {
     double* Ax = (double*)malloc(sizeof(double) * N);
     double* x_new = (double*)malloc(sizeof(double) * N);
-    double criterion = 1;
+    double b_length = vector_magnitude(b, N);
+    double criterion = 1.0;
 
     const auto start{std::chrono::steady_clock::now()};
-    
-    while (criterion >= epsilon) {
-        #pragma omp parallel 
-        {
-            matrix_mult_parallel(A, x, Ax, N, 40);
-            double x_new_magnitude = 0.0;
+    #pragma omp parallel num_threads(n_threads) shared(criterion)
+    {
+        while (criterion >= epsilon) {
+            double x_new_magnitude = 0.0; 
+            
+            #pragma omp for schedule(static)
+            for (int i = 0; i < N; ++i) {
+                Ax[i] = 0.0;
+                for (int j = 0; j < N; ++j) {
+                    Ax[i] += A[i * N + j] * x[j];
+                }
+            }
+            #pragma omp barrier
+            #pragma omp for 
             for (int i = 0; i < N; ++i) {
                 x_new[i] = Ax[i] - b[i];
                 x[i] -= x_new[i] * teta;
+                #pragma omp atomic
                 x_new_magnitude += x_new[i] * x_new[i];
             }
-            criterion = x_new_magnitude / vector_magnitude(b, N);
-        }
+            #pragma omp single
+            {
+                criterion = x_new_magnitude / b_length;
+            }
+        }        
     }
-    
+
     const auto end{std::chrono::steady_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{end - start};
     free(x_new); free(Ax);
@@ -110,7 +123,9 @@ double iteration_method_parallel_2_var(double* A, double* b, double* x, int N) {
 }
 
 int main() {
-    int N = 1000;
+    int N = 10000;
+    int threads[8] = {1, 2, 4, 7, 8, 16, 20, 40};
+
     double* A = (double*)malloc(sizeof(double) * N * N);
     double* b = (double*)malloc(sizeof(double) * N);
     double* x = (double*)malloc(sizeof(double) * N);
@@ -126,26 +141,25 @@ int main() {
 
 
     std::cout << "Serial program execution time:  " << iteration_method_serial(A, b, x, N) << " s\n";
-    for (int i = 0; i < N; ++i) {
-        // std::cout << x[i] << " ";
+    for (int i = 0; i < N; ++i) 
         x[i] = 0.0;
-    }
-    std::cout << "\n\n";
-
-    std::cout << "Parallel program1 execution time:  " << iteration_method_parallel_1_var(A, b, x, N) << " s\n";
     
-    for (int i = 0; i < N; ++i) {
-        // std::cout << x[i] << " ";
-        x[i] = 0.0;
-    }
     std::cout << "\n\n";
-
-    std::cout << "Parallel program2 execution time:  " << iteration_method_parallel_2_var(A, b, x, N) << " s\n";
-
-    for (int i = 0; i < N; ++i) {
-        // std::cout << x[i] << " ";
-        x[i] = 0.0;
+    std::cout << "Parallel program 1:\n";
+    for (auto& num_threads : threads) {
+        std::cout << "Execution time on " << num_threads << " threads:" << iteration_method_parallel_1_var(A, b, x, N, num_threads) << " s\n";
+        for (int i = 0; i < N; ++i) 
+            x[i] = 0.0;
     }
+    
+    std::cout << "\n\n";
+    std::cout << "Parallel program 2:\n";
+    for (auto& num_threads : threads) {
+        std::cout << "Execution time on " << num_threads << " threads:" << iteration_method_parallel_2_var(A, b, x, N, num_threads) << " s\n";
+        for (int i = 0; i < N; ++i) 
+            x[i] = 0.0;
+    }
+
     std::cout << "\n\n";
     return 0;
 }

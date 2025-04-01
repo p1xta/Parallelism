@@ -44,23 +44,23 @@ class SensorX(Sensor):
         return self._data
          
 class WindowImage:
-    def __init__(self, delay : float):
-        self.delay = delay
+    def __init__(self, fps : float):
+        self.delay = int(1000/fps)
 
     def show(self, img) -> bool:
         cv2.imshow("Sensor display", img)
-        return not cv2.waitKey(1) == ord('q')
+        return not cv2.waitKey(self.delay) == ord('q')
     
     def __del__(self):
         cv2.destroyAllWindows()
 
 class FrameUpdater:
-    def __init__(self, camera_name, resolution, delay):
+    def __init__(self, camera_name, resolution, fps):
         self.sensor_cam = SensorCam(camera_name, resolution)
         self.sensors = [SensorX(0.01), SensorX(0.1), SensorX(1)]
         self.sensor_queues = [queue.Queue(maxsize=1) for _ in range(len(self.sensors))]
         self.last_sensor_data = [0] * len(self.sensors)
-        self.window_image = WindowImage(delay)
+        self.window_image = WindowImage(fps)
         self._running = True
 
     def update_sensor(self, sensor : Sensor, idx, queue):
@@ -103,16 +103,15 @@ class FrameUpdater:
         del self.sensor_cam
         del self.window_image
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.ERROR, filename="./log/logs.log", filemode="w")
 
     parser = argparse.ArgumentParser()
     parser.add_argument('cam_name', type=int)
     parser.add_argument('resolution', type=str, help="resolution as WxH")
-    parser.add_argument('delay', type=float)
+    parser.add_argument('fps', type=int)
     args = parser.parse_args()
     resolution = tuple(map(int, args.resolution.split('x')))
 
-    updater = FrameUpdater(args.cam_name, resolution, args.delay)
+    updater = FrameUpdater(args.cam_name, resolution, args.fps)
     updater.run()

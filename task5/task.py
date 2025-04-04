@@ -13,7 +13,7 @@ class YoloAccelerator():
         self.output = cv2.VideoWriter(filename=output_file_name, fourcc=cv2.VideoWriter_fourcc(*'MP4V'), \
                                       fps=20.0, frameSize=(640, 480))
         self.frame_queue = queue.Queue()
-        self.result_queue = queue.PriorityQueue()
+        self.result_queue = queue.Queue()
         self.num_threads = num_threads
         self.frame_number = 0
         self.next_frame_to_write = 0
@@ -21,28 +21,28 @@ class YoloAccelerator():
         self.lock = threading.Lock()
         self.buffer_max_size = 50
 
-    def get_frame_keypoints(self, model, frame):
+    def _get_frame_keypoints(self, model, frame):
         results = model(frame)
         return cv2.resize(results[0].plot(), (640, 480))
     
-    def write_available_frames(self):
+    def _write_available_frames(self):
         while self.next_frame_to_write in self.buffer:
             self.output.write(self.buffer[self.next_frame_to_write])
             del self.buffer[self.next_frame_to_write]
             self.next_frame_to_write += 1
 
     def worker(self):
-        model = YOLO(self.model_path)
+        model = YOLO(self.model_path) # different yolo instance for each thread for safety 
         while True:
             frame_number, frame = self.frame_queue.get()
             if frame is None:
                 break
 
-            result_frame = self.get_frame_keypoints(model, frame)
+            result_frame = self._get_frame_keypoints(model, frame)
             self.result_queue.put((frame_number, result_frame))
             with self.lock:
                 self.buffer[frame_number] = result_frame
-                self.write_available_frames()
+                self._write_available_frames()
             self.frame_queue.task_done()
 
     def process_single_thread(self):
@@ -53,13 +53,13 @@ class YoloAccelerator():
             if not ret:
                 print("failed to read frame from video")
                 break
-            result_frame = self.get_frame_keypoints(model, frame)
+            result_frame = self._get_frame_keypoints(model, frame)
             #cv2.imshow('frame', result_frame)
             self.output.write(result_frame)
         video.release()
 
     def process_multi_thread(self):
-        threads = [threading.Thread(target=self.worker, daemon=True) for _ in range(self.num_threads)]
+        threads = [threading.Thread(target=self.worker) for _ in range(self.num_threads)]
         for thread in threads:
             thread.start()
         video = cv2.VideoCapture(self.video_path)
@@ -78,7 +78,7 @@ class YoloAccelerator():
         for t in threads:
             t.join()
         with self.lock:
-            self.write_available_frames()
+            self._write_available_frames()
 
         video.release()
 
@@ -106,5 +106,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     multi_flag = (args.mode == "multi-thread")
-    yolo_processor = YoloAccelerator(args.video_path, args.output_file, "yolov8s-pose.pt", 8)
+    yolo_processor = YoloAccelerator(args.video_path, args.output_file, "yolov8s-pose.pt", 4)
     yolo_processor.run(multi_flag)

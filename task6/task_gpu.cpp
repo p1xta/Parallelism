@@ -20,6 +20,7 @@ void initialize(double* A, double* Anew, size_t size) {
     double top_right = A[size-1];
     double bottom_left = A[size*(size-1)];
     double bottom_right = A[size*size-1];
+
     for (int i = 1; i < size-1; ++i) {
         A[i] = top_left + (top_right-top_left)*i / static_cast<double>(size-1); // top  
         A[size*(size-1) + i] = bottom_left + (bottom_right-bottom_left)*i / static_cast<double>(size-1); // bottom  
@@ -30,27 +31,35 @@ void initialize(double* A, double* Anew, size_t size) {
     #pragma acc enter data copyin(A[:size*size],Anew[:size*size])
 }
 
-// 10 ... 20
-// .       .
-// .       .
-// 30 ... 20
-
-double calculate_next_grid(double* restrict A, double *restrict Anew, size_t size) {
+double calculate_next_grid(double* A, double* Anew, size_t size, bool check_error) {
     double error = 0.0;
-    #pragma acc parallel loop reduction(max:error) present(A,Anew)
-    for (int i = 1; i < size-1; ++i) {
-        #pragma acc loop
-        for (int j = 1; j < size-1; ++j) {
-            Anew[i*size + j] = 0.25 * ( A[(i+1)*size + j] + A[(i-1)*size + j]  
-                                           + A[i*size + j-1] + A[i*size + j+1]);  
-            error = fmax( error, fabs(Anew[i*size + j] - A[i*size + j]));  
+    if (check_error) {
+        #pragma acc parallel loop reduction(max:error) present(A,Anew)
+        for (int i = 1; i < size-1; ++i) {
+            #pragma acc loop
+            for (int j = 1; j < size-1; ++j) {
+                Anew[i*size + j] = 0.25 * ( A[(i+1)*size + j] + A[(i-1)*size + j]  
+                                            + A[i*size + j-1] + A[i*size + j+1]);  
+                error = fmax( error, fabs(Anew[i*size + j] - A[i*size + j]));  
+            }
+        }
+    }
+    else {
+        #pragma acc parallel loop present(A,Anew)
+        for (int i = 1; i < size-1; ++i) {
+            #pragma acc loop
+            for (int j = 1; j < size-1; ++j) {
+                Anew[i*size + j] = 0.25 * ( A[(i+1)*size + j] + A[(i-1)*size + j]  
+                                            + A[i*size + j-1] + A[i*size + j+1]);  
+                error = fmax( error, fabs(Anew[i*size + j] - A[i*size + j]));  
+            }
         }
     }
     return error;
 }
 
-void copy_matrix(double *restrict A, double *restrict Anew, int size) {
-    #pragma acc parallel loop present(A,Anew)
+void copy_matrix(double* A, double* Anew, size_t size) {
+    #pragma acc parallel loop present(A,Anew) 
     for (int i = 1; i < size-1; i++) {
         #pragma acc loop
         for (int j = 1; j < size-1; j++) {
@@ -59,7 +68,7 @@ void copy_matrix(double *restrict A, double *restrict Anew, int size) {
     }
 }
 
-void deallocate(double *restrict A, double *restrict Anew) {
+void deallocate(double* A, double* Anew) {
     #pragma acc exit data delete(A,Anew)
     free(A);
     free(Anew);
@@ -76,7 +85,7 @@ void print_grid(double* A, size_t size) {
 
 int main(int argc, char* argv[]) {
 
-    int size = 128;
+    int size;
     double accuracy;
     int max_iterations;
 
@@ -95,22 +104,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::cout << "Program started!\n\n";
-    double *restrict A = (double *)malloc(sizeof(double) * size * size);
-    double *restrict Anew = (double *)malloc(sizeof(double) * size * size);
+    double* A = (double *)malloc(sizeof(double) * size * size);
+    double* Anew = (double *)malloc(sizeof(double) * size * size);
 
     double error = accuracy+1.0;
-    double iteration = 0;
+    int iteration = 0;
     
     nvtxRangePushA("init");
-    initialize(A, Anew, size); // put all zeros except corners
+    initialize(A, Anew, size); 
     nvtxRangePop();
     
     const auto start{std::chrono::steady_clock::now()};
-    
     nvtxRangePushA("while");
     while (error > accuracy && iteration < max_iterations) {
         nvtxRangePushA("calc");
-        error = calculate_next_grid(A, Anew, size);
+
+        if (iteration % 1000 == 0)
+            error = calculate_next_grid(A, Anew, size, true);
+        else 
+            calculate_next_grid(A, Anew, size, false);
+        
         nvtxRangePop();
         
         nvtxRangePushA("copy");

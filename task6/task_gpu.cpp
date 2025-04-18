@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
     // print_grid(A, size);
 
     std::cout << "Time:  " << elapsed_seconds.count() << " sec\n";
-    std::cout << "Iterations:  " << iteration << "\n";
+    std::cout << "Iterations:  " << iteration-1 << "\n";
     std::cout << "Error value:  " << error << std::endl;
     deallocate(A, Anew);
     return 0;

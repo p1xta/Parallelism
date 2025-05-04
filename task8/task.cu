@@ -123,20 +123,16 @@ int main(int argc, char* argv[]) {
     cudaStreamCreate(&stream);
     cudaGraph_t graph;
     cudaGraphExec_t instance;
-    bool graph_created = false;
+    cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+    grid_kernel<<<grid, block, 0, stream>>>(device_A, device_Anew, size);
+    cudaStreamEndCapture(stream, &graph);
+    cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
 
     std::cout << "Program started!\n\n";
 
     const auto start{std::chrono::steady_clock::now()};
 
     while (error > accuracy && iteration < max_iterations) {
-        if (!graph_created) {
-            cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
-            grid_kernel<<<grid, block, 0, stream>>>(device_A, device_Anew, size);
-            cudaStreamEndCapture(stream, &graph);
-            cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
-            graph_created = true;
-        }
         cudaGraphLaunch(instance, stream);
         cudaStreamSynchronize(stream);
 

@@ -35,7 +35,8 @@ __global__ void error_kernel(double* A, double* Anew, double* block_max_errors, 
         int j = idx % size;
         if (i > 0 && i < size-1 && j > 0 && j < size-1) {
             double diff = fabs(A[idx] - Anew[idx]);
-            if (diff > local_max) local_max = diff;
+            if (diff > local_max) 
+                local_max = diff;
         }
     }
     double block_max = BlockReduce(temp_storage).Reduce(local_max, cub::Max());
@@ -96,6 +97,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    double error = accuracy + 1.0;
+    int iteration = 0;
+
     size_t grid_size = size * size * sizeof(double);
     double* host_A = (double*)malloc(grid_size);
     double* host_Anew = (double*)malloc(grid_size);
@@ -108,12 +112,9 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(device_A, host_A, grid_size, cudaMemcpyHostToDevice);
     cudaMemcpy(device_Anew, host_Anew, grid_size, cudaMemcpyHostToDevice);
 
-    int threads = 20;
+    int threads = 16;
     dim3 block(threads, threads);
     dim3 grid((size + threads - 1) / threads, (size + threads - 1) / threads);
-
-    double error = accuracy + 1.0;
-    int iteration = 0;
 
     int num_blocks = 1024;
     double* d_block_max;
@@ -124,6 +125,10 @@ int main(int argc, char* argv[]) {
     cudaGraph_t graph;
     cudaGraphExec_t instance;
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+    for (int i = 0; i < 100; i++) {
+        grid_kernel<<<grid, block, 0, stream>>>(device_A, device_Anew, size);
+        copy_kernel<<<grid, block, 0, stream>>>(device_A, device_Anew, size);
+    }
     grid_kernel<<<grid, block, 0, stream>>>(device_A, device_Anew, size);
     cudaStreamEndCapture(stream, &graph);
     cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
@@ -136,20 +141,17 @@ int main(int argc, char* argv[]) {
         cudaGraphLaunch(instance, stream);
         cudaStreamSynchronize(stream);
 
-        if (iteration % 1000 == 0) {
-            error_kernel<<<num_blocks, 256, 0, stream>>>(device_A, device_Anew, d_block_max, size);
-            double* h_block_max = new double[num_blocks];
-            cudaMemcpy(h_block_max, d_block_max, sizeof(double) * num_blocks, cudaMemcpyDeviceToHost);
+        error_kernel<<<num_blocks, 256, 0, stream>>>(device_A, device_Anew, d_block_max, size);
+        double* h_block_max = new double[num_blocks];
+        cudaMemcpy(h_block_max, d_block_max, sizeof(double) * num_blocks, cudaMemcpyDeviceToHost);
 
-            error = 0.0;
-            for (int i = 0; i < num_blocks; ++i)
-                if (h_block_max[i] > error)
-                    error = h_block_max[i];
+        error = 0.0;
+        for (int i = 0; i < num_blocks; ++i) 
+            if (h_block_max[i] > error)
+                error = h_block_max[i];
 
-            delete[] h_block_max;
-        }
-        copy_kernel<<<grid, block>>>(device_A, device_Anew, size);
-        iteration++;
+        delete[] h_block_max;
+        iteration+=100;
     }
 
     const auto end{std::chrono::steady_clock::now()};
